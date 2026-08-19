@@ -1,0 +1,15 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Database (optional to ignore or include demo DB)
+*.db-journal
+
+# Environment variables & secrets
+.env
+*.token
+
+# OS generated
+.DS_Store
+Thumbs.db
