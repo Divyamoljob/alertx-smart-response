@@ -1,0 +1,1562 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AlertX - Smart Emergency & Crime Reporting System</title>
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            alert: {
+              50: '#fef2f2',
+              100: '#fee2e2',
+              500: '#ef4444',
+              600: '#dc2626',
+              700: '#b91c1c',
+              900: '#7f1d1d',
+              950: '#450a0a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Leaflet CSS & JS for Interactive Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- Chart.js for Admin Analytics -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-red-500 selection:text-white">
+
+  <!-- ========================================================================= -->
+  <!-- 1. TOP GLOBAL EMERGENCY BANNER (Pops when active SOS exists) -->
+  <!-- ========================================================================= -->
+  <div id="globalSOSActiveBanner" class="hidden bg-gradient-to-r from-red-600 via-rose-600 to-red-700 text-white px-4 py-2 text-xs font-bold flex items-center justify-between shadow-lg sticky top-0 z-50 animate-pulse">
+    <div class="flex items-center gap-2 max-w-4xl mx-auto w-full justify-between">
+      <div class="flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-white animate-ping"></span>
+        <span id="globalSosCountText">1 Active Distress Alert</span> - Live Location Telemetry & Dispatch Active
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="window.app.toggleRole('admin')" class="px-2.5 py-1 bg-black/30 hover:bg-black/50 rounded-lg text-white font-semibold transition flex items-center gap-1">
+          <i data-lucide="radio" class="w-3.5 h-3.5"></i> Open Dispatch Triage
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- 2. MAIN HEADER NAVIGATION BAR -->
+  <!-- ========================================================================= -->
+  <header class="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+
+        <!-- Logo & Branding -->
+        <div class="flex items-center gap-3 cursor-pointer" onclick="window.app.switchView('home')">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-rose-700 flex items-center justify-center text-white shadow-lg shadow-red-500/30">
+            <i data-lucide="shield-alert" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-1.5">
+              <span class="font-extrabold text-lg tracking-tight bg-gradient-to-r from-white via-slate-100 to-red-400 bg-clip-text text-transparent">AlertX</span>
+              <span class="px-1.5 py-0.2 rounded text-[10px] font-extrabold bg-red-600/20 text-red-400 border border-red-500/30">SMART RESPONSE</span>
+            </div>
+            <div class="text-[10px] text-slate-400 font-medium tracking-wide">Women Safety & Crime Reporting</div>
+          </div>
+        </div>
+
+        <!-- Citizen Navigation Items -->
+        <nav id="citizenNavItems" class="hidden md:flex items-center gap-1">
+          <button onclick="window.app.switchView('home')" data-view="home" class="nav-link px-3 py-1.5 rounded-lg text-xs font-semibold text-red-400 bg-slate-800/80 flex items-center gap-1.5 transition">
+            <i data-lucide="radio" class="w-4 h-4"></i> Emergency SOS
+          </button>
+          <button onclick="window.app.switchView('report')" data-view="report" class="nav-link px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800/60 flex items-center gap-1.5 transition">
+            <i data-lucide="file-plus-2" class="w-4 h-4 text-orange-400"></i> Report Crime
+          </button>
+          <button onclick="window.app.switchView('sketch')" data-view="sketch" class="nav-link px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800/60 flex items-center gap-1.5 transition">
+            <i data-lucide="user-check" class="w-4 h-4 text-purple-400"></i> Suspect Sketcher
+          </button>
+          <button onclick="window.app.switchView('map')" data-view="map" class="nav-link px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800/60 flex items-center gap-1.5 transition">
+            <i data-lucide="map" class="w-4 h-4 text-emerald-400"></i> Safety Map
+          </button>
+          <button onclick="window.app.switchView('tools')" data-view="tools" class="nav-link px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800/60 flex items-center gap-1.5 transition">
+            <i data-lucide="phone-call" class="w-4 h-4 text-amber-400"></i> Safety Tools
+          </button>
+          <button onclick="window.app.switchView('profile')" data-view="profile" class="nav-link px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800/60 flex items-center gap-1.5 transition">
+            <i data-lucide="user" class="w-4 h-4 text-blue-400"></i> Contacts
+          </button>
+        </nav>
+
+        <!-- Police Admin Navigation Items -->
+        <nav id="adminNavItems" class="hidden md:flex items-center gap-1">
+          <button onclick="window.app.switchView('admin_overview')" data-view="admin_overview" class="nav-link px-3 py-1.5 rounded-lg text-xs font-semibold text-red-400 bg-slate-800/80 flex items-center gap-1.5 transition">
+            <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Command Feed
+            <span id="adminActiveSOSCountBadge" class="hidden ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-red-600 text-white font-extrabold animate-pulse">0</span>
+          </button>
+          <button onclick="window.app.switchView('map')" data-view="map" class="nav-link px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800/60 flex items-center gap-1.5 transition">
+            <i data-lucide="radar" class="w-4 h-4 text-emerald-400"></i> Live Radar Map
+          </button>
+          <button onclick="window.app.switchView('admin_incidents')" data-view="admin_incidents" class="nav-link px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800/60 flex items-center gap-1.5 transition">
+            <i data-lucide="clipboard-list" class="w-4 h-4 text-blue-400"></i> Incident Registry
+          </button>
+          <button onclick="window.app.switchView('admin_analytics')" data-view="admin_analytics" class="nav-link px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800/60 flex items-center gap-1.5 transition">
+            <i data-lucide="bar-chart-3" class="w-4 h-4 text-indigo-400"></i> Analytics & Heatmap
+          </button>
+        </nav>
+
+        <!-- Right Controls: Role Switcher & Demo Badge -->
+        <div class="flex items-center gap-2.5">
+          <!-- 1-Click Role Switcher -->
+          <button id="roleToggleBtn" onclick="window.app.toggleRole(window.app.currentRole === 'user' ? 'admin' : 'user')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-red-950/80 text-red-300 border border-red-700/60 hover:bg-red-900 transition">
+            <i data-lucide="user" class="w-4 h-4 text-red-400"></i>
+            <span>Mode: <b>Citizen Portal</b></span>
+          </button>
+
+          <!-- User Badge / Quick Info -->
+          <div class="hidden lg:flex items-center gap-2 pl-2 border-l border-slate-800">
+            <div class="w-7 h-7 rounded-full bg-slate-800 flex items-center justify-center text-xs font-bold text-slate-300 border border-slate-700">
+              <i data-lucide="shield" class="w-3.5 h-3.5 text-slate-400"></i>
+            </div>
+            <div class="text-[11px] leading-tight">
+              <div id="currentUserBadge" class="font-bold text-slate-200">Priya Sharma</div>
+              <div class="text-emerald-400 flex items-center gap-1 font-mono text-[10px]">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> GPS Connected
+              </div>
+            </div>
+          </div>
+
+          <!-- Reset Demo Data -->
+          <button onclick="window.app.resetDemoData()" title="Reset demo dataset" class="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition">
+            <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+  <!-- ========================================================================= -->
+  <!-- 3. MAIN CONTENT CONTAINER (SPA VIEWS) -->
+  <!-- ========================================================================= -->
+  <main class="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- ----------------------------------------------------------------------- -->
+    <!-- VIEW A: CITIZEN HOME (EMERGENCY SOS HUB) -->
+    <!-- ----------------------------------------------------------------------- -->
+    <section id="view_home" class="view-section animate-fade-in space-y-6">
+      
+      <!-- Top Emergency Header -->
+      <div class="text-center space-y-1.5 max-w-xl mx-auto">
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-950/60 text-red-400 border border-red-800/40">
+          <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span> 24/7 Smart Emergency Dispatch Active
+        </span>
+        <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">Emergency Assistance</h1>
+        <p class="text-xs sm:text-sm text-slate-400">Tap the SOS button to instantly alert nearest police units and your emergency contacts with real-time GPS tracking.</p>
+      </div>
+
+      <!-- Giant Pulsating SOS Trigger Button -->
+      <div class="py-10 flex flex-col items-center justify-center">
+        <div class="sos-pulse-container cursor-pointer select-none" onclick="window.sosController.startSOSCountdown()">
+          <div class="sos-ring sos-ring-1"></div>
+          <div class="sos-ring sos-ring-2"></div>
+          <div class="sos-ring sos-ring-3"></div>
+          
+          <button class="relative w-44 h-44 sm:w-52 sm:h-52 rounded-full bg-gradient-to-tr from-red-700 via-red-600 to-rose-500 text-white font-black text-3xl sm:text-4xl tracking-wider uppercase sos-button-glow flex flex-col items-center justify-center border-4 border-white/20 active:scale-95 transition">
+            <i data-lucide="radio" class="w-10 h-10 mb-1 animate-bounce"></i>
+            <span>SOS</span>
+            <span class="text-[11px] font-bold tracking-widest text-red-100 uppercase opacity-90 mt-1">Press for Help</span>
+          </button>
+        </div>
+
+        <div class="mt-8 text-center text-xs text-slate-400 flex items-center gap-2">
+          <i data-lucide="lock" class="w-3.5 h-3.5 text-slate-500"></i>
+          <span>Includes a 3-second cancel countdown to prevent false alarms</span>
+        </div>
+      </div>
+
+      <!-- Telemetry Status Card -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- GPS Telemetry -->
+        <div class="glass-panel p-4 rounded-2xl border border-slate-800 flex items-start gap-3.5">
+          <div class="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center shrink-0">
+            <i data-lucide="map-pin" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <div class="text-xs text-slate-400 font-medium">Current Location</div>
+            <div class="text-sm font-bold text-slate-100 mt-0.5" id="homeLocationDisplay">Near Rajiv Chowk, Connaught Place</div>
+            <div class="text-[11px] text-blue-400 font-mono mt-1 flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span> GPS Accuracy: ±8m
+            </div>
+          </div>
+        </div>
+
+        <!-- Emergency Contacts Status -->
+        <div class="glass-panel p-4 rounded-2xl border border-slate-800 flex items-start gap-3.5">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
+            <i data-lucide="users" class="w-5 h-5"></i>
+          </div>
+          <div class="flex-1">
+            <div class="text-xs text-slate-400 font-medium">Emergency Contacts</div>
+            <div class="text-sm font-bold text-slate-100 mt-0.5">3 Contacts Linked</div>
+            <div class="text-[11px] text-emerald-400 mt-1 flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Auto-SMS & Tracking Link Ready
+            </div>
+          </div>
+        </div>
+
+        <!-- Responder Proximity -->
+        <div class="glass-panel p-4 rounded-2xl border border-slate-800 flex items-start gap-3.5">
+          <div class="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center shrink-0">
+            <i data-lucide="shield" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <div class="text-xs text-slate-400 font-medium">Nearest Safe Haven</div>
+            <div class="text-sm font-bold text-slate-100 mt-0.5">Pink Booth - Sector 18 (0.4 km)</div>
+            <div class="text-[11px] text-purple-400 mt-1">Est. Response Time: ~3 mins</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Action Toolbar -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <button onclick="window.safetyTools.triggerFakeCall()" class="glass-panel p-4 rounded-xl border border-slate-800 hover:border-amber-500/40 hover:bg-slate-800/80 transition flex flex-col items-center text-center gap-2 group">
+          <div class="w-10 h-10 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center group-hover:scale-110 transition">
+            <i data-lucide="phone-call" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <div class="font-bold text-xs text-slate-100">Fake Call</div>
+            <div class="text-[10px] text-slate-400">Escape uncomfortable spots</div>
+          </div>
+        </button>
+
+        <button onclick="window.safetyTools.toggleWhistleAlarm()" class="glass-panel p-4 rounded-xl border border-slate-800 hover:border-red-500/40 hover:bg-slate-800/80 transition flex flex-col items-center text-center gap-2 group">
+          <div class="w-10 h-10 rounded-lg bg-red-500/10 text-red-400 flex items-center justify-center group-hover:scale-110 transition">
+            <i data-lucide="megaphone" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <div class="font-bold text-xs text-slate-100">Deterrent Siren</div>
+            <div class="text-[10px] text-slate-400">High-pitch 120dB alarm</div>
+          </div>
+        </button>
+
+        <button onclick="window.app.switchView('report')" class="glass-panel p-4 rounded-xl border border-slate-800 hover:border-orange-500/40 hover:bg-slate-800/80 transition flex flex-col items-center text-center gap-2 group">
+          <div class="w-10 h-10 rounded-lg bg-orange-500/10 text-orange-400 flex items-center justify-center group-hover:scale-110 transition">
+            <i data-lucide="file-text" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <div class="font-bold text-xs text-slate-100">Report Crime</div>
+            <div class="text-[10px] text-slate-400">Smart AI priority scoring</div>
+          </div>
+        </button>
+
+        <button onclick="window.app.switchView('sketch')" class="glass-panel p-4 rounded-xl border border-slate-800 hover:border-purple-500/40 hover:bg-slate-800/80 transition flex flex-col items-center text-center gap-2 group">
+          <div class="w-10 h-10 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center group-hover:scale-110 transition">
+            <i data-lucide="user-plus" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <div class="font-bold text-xs text-slate-100">Suspect Sketcher</div>
+            <div class="text-[10px] text-slate-400">Composite face builder</div>
+          </div>
+        </button>
+      </div>
+
+      <!-- Emergency Helplines Quick-Dial Ribbon -->
+      <div class="glass-panel p-4 rounded-2xl border border-slate-800 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <i data-lucide="phone-forwarded" class="w-5 h-5 text-red-400"></i>
+          <span class="font-bold text-xs text-slate-200">National Emergency Lines:</span>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button onclick="window.safetyTools.dialHelpline('112', 'National Emergency')" class="px-3 py-1.5 rounded-lg bg-red-600/20 text-red-300 hover:bg-red-600 hover:text-white border border-red-500/30 text-xs font-bold transition flex items-center gap-1.5">
+            <i data-lucide="phone" class="w-3.5 h-3.5"></i> 112 (Emergency)
+          </button>
+          <button onclick="window.safetyTools.dialHelpline('1091', 'Women in Distress')" class="px-3 py-1.5 rounded-lg bg-pink-600/20 text-pink-300 hover:bg-pink-600 hover:text-white border border-pink-500/30 text-xs font-bold transition flex items-center gap-1.5">
+            <i data-lucide="phone" class="w-3.5 h-3.5"></i> 1091 (Women Helpline)
+          </button>
+          <button onclick="window.safetyTools.dialHelpline('181', 'Women Domestic Abuse')" class="px-3 py-1.5 rounded-lg bg-purple-600/20 text-purple-300 hover:bg-purple-600 hover:text-white border border-purple-500/30 text-xs font-bold transition flex items-center gap-1.5">
+            <i data-lucide="phone" class="w-3.5 h-3.5"></i> 181 (Women Cell)
+          </button>
+          <button onclick="window.safetyTools.dialHelpline('1930', 'Cyber Crime Helpline')" class="px-3 py-1.5 rounded-lg bg-blue-600/20 text-blue-300 hover:bg-blue-600 hover:text-white border border-blue-500/30 text-xs font-bold transition flex items-center gap-1.5">
+            <i data-lucide="phone" class="w-3.5 h-3.5"></i> 1930 (Cyber Crime)
+          </button>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ----------------------------------------------------------------------- -->
+    <!-- VIEW B: SMART INCIDENT & CRIME REPORTING (AI CLASSIFIER) -->
+    <!-- ----------------------------------------------------------------------- -->
+    <section id="view_report" class="view-section hidden animate-fade-in space-y-6">
+      
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-800">
+        <div>
+          <h2 class="text-2xl font-extrabold text-white flex items-center gap-2">
+            <i data-lucide="file-plus-2" class="w-6 h-6 text-red-500"></i> Smart Incident & Crime Reporting
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">Automated NLP Engine evaluates threat level in real time to categorize report urgency.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="window.app.switchView('sketch')" class="px-3 py-1.5 rounded-lg bg-purple-950 text-purple-300 border border-purple-800/60 hover:bg-purple-900 text-xs font-semibold flex items-center gap-1.5 transition">
+            <i data-lucide="user-check" class="w-4 h-4"></i> Suspect Sketch Studio
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Left 7 cols: Reporting Form -->
+        <div class="lg:col-span-7 space-y-4">
+          <div class="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4">
+            
+            <!-- Category & Incident Title -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">Incident Category *</label>
+                <select id="reportCategory" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 focus:outline-none focus:border-red-500">
+                  <option value="Harassment">Harassment</option>
+                  <option value="Stalking">Stalking</option>
+                  <option value="Assault">Physical Assault</option>
+                  <option value="Domestic Violence">Domestic Violence</option>
+                  <option value="Robbery">Robbery / Snatching</option>
+                  <option value="Cybercrime">Cyber Harassment</option>
+                  <option value="Suspicious">Suspicious Activity</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div class="sm:col-span-2">
+                <label class="block text-xs font-bold text-slate-300 mb-1">Incident Title *</label>
+                <input type="text" id="reportTitle" placeholder="e.g., Stalked near college gate by bike rider" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-red-500" />
+              </div>
+            </div>
+
+            <!-- Date, Time, Location -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">Date of Incident</label>
+                <input type="date" id="reportDate" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-red-500" />
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">Time (Approx)</label>
+                <input type="time" id="reportTime" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-red-500" />
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">Location Name</label>
+                <input type="text" id="reportLocation" placeholder="e.g., Metro Gate 2" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-red-500" />
+              </div>
+            </div>
+
+            <!-- Detailed Description (Triggers Live NLP) -->
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label class="text-xs font-bold text-slate-300">Detailed Description & Narrative *</label>
+                <span class="text-[10px] text-slate-400">AI monitors keywords in real-time</span>
+              </div>
+              <textarea id="reportDesc" rows="4" placeholder="Describe the incident clearly (mention if weapons, pursuit, physical threats, vehicle details, or distress were involved)..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-red-500 leading-relaxed"></textarea>
+            </div>
+
+            <!-- Live Evidence Tools: Voice Recording & File Attachment -->
+            <div class="pt-2 border-t border-slate-800 space-y-3">
+              <label class="block text-xs font-bold text-slate-300">Evidence Attachments</label>
+
+              <div class="flex flex-wrap items-center gap-2">
+                <!-- Voice Recorder Button -->
+                <button type="button" id="voiceRecordBtn" onclick="window.reportManager.toggleVoiceRecording()" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-200 flex items-center transition">
+                  <i data-lucide="mic" class="w-4 h-4 mr-1.5 text-red-400"></i> Record Voice Note
+                </button>
+                <span id="voiceRecordStatus" class="text-xs text-slate-400"></span>
+
+                <!-- File Upload Button -->
+                <label class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-200 flex items-center cursor-pointer transition">
+                  <i data-lucide="paperclip" class="w-4 h-4 mr-1.5 text-blue-400"></i> Attach Photos / Docs
+                  <input type="file" id="evidenceFileInput" multiple class="hidden" accept="image/*,video/*,audio/*,.pdf,.doc,.docx" />
+                </label>
+              </div>
+
+              <!-- Audio Player Preview (if recorded) -->
+              <div id="audioPlayerContainer" class="hidden p-2.5 bg-slate-900 rounded-xl border border-slate-700 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <i data-lucide="volume-2" class="w-4 h-4 text-emerald-400"></i>
+                  <span class="text-xs text-slate-300 font-medium">Recorded Voice Evidence</span>
+                </div>
+                <audio id="voiceAudioElement" controls class="h-7 w-48"></audio>
+              </div>
+
+              <!-- Evidence Files Grid -->
+              <div id="evidenceFilesGrid" class="grid grid-cols-3 sm:grid-cols-4 gap-2 pt-1">
+                <p class="text-xs text-slate-500 col-span-full italic">No files attached yet.</p>
+              </div>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="pt-2">
+              <button type="button" id="submitReportBtn" onclick="window.reportManager.submitReport()" class="w-full py-3 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-extrabold text-sm tracking-wide shadow-lg shadow-red-600/30 transition flex items-center justify-center gap-2">
+                <i data-lucide="send" class="w-4 h-4"></i> Submit Official Incident Report
+              </button>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Right 5 cols: Live AI Priority Classifier Card & Attached Suspect Sketch -->
+        <div class="lg:col-span-5 space-y-4">
+          
+          <!-- AI Priority Gauge Panel -->
+          <div class="glass-panel p-5 rounded-2xl border border-slate-800 space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <div class="w-7 h-7 rounded-lg bg-red-500/10 text-red-400 flex items-center justify-center font-bold text-xs">
+                  <i data-lucide="cpu" class="w-4 h-4"></i>
+                </div>
+                <span class="font-extrabold text-xs text-white uppercase tracking-wider">AI Priority Analysis</span>
+              </div>
+              <span id="livePriorityBadge" class="px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider badge-low">
+                LOW PRIORITY
+              </span>
+            </div>
+
+            <!-- Score bar -->
+            <div class="space-y-1">
+              <div class="flex justify-between text-xs text-slate-400 font-medium">
+                <span>Calculated Urgency Level</span>
+                <span id="livePriorityScore" class="font-bold text-slate-200">15%</span>
+              </div>
+              <div class="w-full h-2.5 rounded-full bg-slate-800 overflow-hidden">
+                <div id="livePriorityBar" class="h-full rounded-full bg-blue-500 w-[15%] transition-all duration-300"></div>
+              </div>
+            </div>
+
+            <!-- AI Rationale -->
+            <div class="p-3 bg-slate-900/90 rounded-xl border border-slate-800">
+              <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1 flex items-center gap-1">
+                <i data-lucide="sparkles" class="w-3 h-3 text-amber-400"></i> Real-Time Rationale Breakdown
+              </div>
+              <p id="livePriorityRationale" class="text-xs text-slate-300 leading-relaxed italic">
+                Standard priority scoring for Harassment incident. Type more details to analyze threat keywords.
+              </p>
+            </div>
+
+            <div class="text-[11px] text-slate-400 grid grid-cols-2 gap-2 pt-1">
+              <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-red-500"></span> <b>Critical:</b> Weapons, assault</div>
+              <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-orange-500"></span> <b>High:</b> Active stalking, night</div>
+              <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-yellow-500"></span> <b>Medium:</b> Harassment, threats</div>
+              <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-blue-500"></span> <b>Low:</b> Other inquiries</div>
+            </div>
+          </div>
+
+          <!-- Attached Suspect Sketch Card -->
+          <div class="glass-panel p-5 rounded-2xl border border-slate-800 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-xs text-white flex items-center gap-1.5">
+                <i data-lucide="user-check" class="w-4 h-4 text-purple-400"></i> Attached Suspect Sketch
+              </span>
+              <button type="button" onclick="window.app.switchView('sketch')" class="text-xs text-purple-400 hover:underline">Open Studio</button>
+            </div>
+
+            <div id="noSketchPlaceholder" class="p-4 bg-slate-900 rounded-xl border border-dashed border-slate-700 text-center space-y-2">
+              <i data-lucide="image-plus" class="w-8 h-8 mx-auto text-slate-500"></i>
+              <p class="text-xs text-slate-400">No suspect portrait attached yet.</p>
+              <button type="button" onclick="window.app.switchView('sketch')" class="px-3 py-1.5 rounded-lg bg-purple-900/60 text-purple-200 hover:bg-purple-800 text-xs font-semibold transition">
+                Create Suspect Face
+              </button>
+            </div>
+
+            <div id="attachedSketchPreview" class="hidden p-3 bg-slate-900 rounded-xl border border-slate-700 flex items-center gap-4">
+              <img id="attachedSketchImg" class="w-24 h-28 object-cover rounded-lg border border-slate-600 shadow" />
+              <div class="space-y-1.5">
+                <div class="font-bold text-xs text-white">Forensic Sketch Attached</div>
+                <div class="text-[11px] text-slate-400">Generated via Facial Compositor</div>
+                <button type="button" onclick="window.reportManager.removeSketch()" class="text-xs text-red-400 hover:underline flex items-center gap-1">
+                  <i data-lucide="trash-2" class="w-3 h-3"></i> Detach Sketch
+                </button>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ----------------------------------------------------------------------- -->
+    <!-- VIEW C: SUSPECT SKETCH COMPOSITOR STUDIO -->
+    <!-- ----------------------------------------------------------------------- -->
+    <section id="view_sketch" class="view-section hidden animate-fade-in space-y-6">
+      
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-800">
+        <div>
+          <h2 class="text-2xl font-extrabold text-white flex items-center gap-2">
+            <i data-lucide="user-check" class="w-6 h-6 text-purple-400"></i> Suspect Facial Feature Compositor
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">Select facial traits, hair, accessories, and complexion to generate a forensic suspect portrait.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="window.sketcher.runDatabaseMatch()" class="px-3 py-1.5 rounded-lg bg-indigo-950 text-indigo-300 border border-indigo-700/60 hover:bg-indigo-900 text-xs font-bold flex items-center gap-1.5 transition">
+            <i data-lucide="scan-face" class="w-3.5 h-3.5"></i> Scan Database
+          </button>
+          <button onclick="window.sketcher.randomize()" class="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-200 hover:bg-slate-700 text-xs font-semibold flex items-center gap-1.5 transition">
+            <i data-lucide="shuffle" class="w-3.5 h-3.5"></i> Randomize
+          </button>
+          <button onclick="window.app.useSketchInReport()" class="px-3.5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-extrabold flex items-center gap-1.5 shadow-lg shadow-purple-600/30 transition">
+            <i data-lucide="file-check-2" class="w-3.5 h-3.5"></i> Use in Crime Report
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        
+        <!-- Left 5 cols: Sketch Canvas Preview -->
+        <div class="lg:col-span-5 space-y-3">
+          <div class="glass-panel p-4 rounded-2xl border border-slate-800 flex flex-col items-center">
+            
+            <div class="sketch-canvas-container sketch-paper-texture border border-slate-700">
+              <canvas id="sketchCanvas" width="380" height="460" class="block mx-auto"></canvas>
+            </div>
+
+            <!-- Sketch Filter Mode & Download Options -->
+            <div class="mt-4 w-full flex items-center justify-between gap-2">
+              <div class="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-700 text-xs">
+                <button onclick="window.sketcher.updateFeature('filterMode', 'realistic')" class="px-2.5 py-1 rounded font-semibold text-slate-200 hover:bg-slate-800">Realistic</button>
+                <button onclick="window.sketcher.updateFeature('filterMode', 'charcoal')" class="px-2.5 py-1 rounded font-semibold text-slate-200 hover:bg-slate-800">Charcoal Sketch</button>
+              </div>
+
+              <button onclick="window.sketcher.download()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i> Export PNG
+              </button>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Right 7 cols: Modular Feature Selectors -->
+        <div class="lg:col-span-7 space-y-3">
+          <div class="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4">
+            
+            <h3 class="font-extrabold text-sm text-slate-200 uppercase tracking-wider flex items-center gap-2">
+              <i data-lucide="sliders" class="w-4 h-4 text-purple-400"></i> Facial Feature Controls
+            </h3>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              
+              <!-- Face Shape -->
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">Face & Jaw Shape</label>
+                <select id="sketch_faceShape" onchange="window.sketcher.updateFeature('faceShape', this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 focus:border-purple-500">
+                  <option value="oval">Oval (Standard)</option>
+                  <option value="round">Round Face</option>
+                  <option value="square">Square / Chiseled Jaw</option>
+                  <option value="sharp">Sharp Diamond / Pointed V-Chin</option>
+                  <option value="heart">Heart Shape</option>
+                </select>
+              </div>
+
+              <!-- Skin Tone -->
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">Skin Tone / Complexion</label>
+                <select id="sketch_skinTone" onchange="window.sketcher.updateFeature('skinTone', this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 focus:border-purple-500">
+                  <option value="#fcd5b5">Light Fair</option>
+                  <option value="#f3c299">Fair</option>
+                  <option value="#e0ac69" selected>Medium / Wheatish</option>
+                  <option value="#bb8354">Olive Tan</option>
+                  <option value="#8d5524">Dark Brown</option>
+                  <option value="#593315">Deep Dark</option>
+                </select>
+              </div>
+
+              <!-- Hair Style -->
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">Hair Style</label>
+                <select id="sketch_hairStyle" onchange="window.sketcher.updateFeature('hairStyle', this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 focus:border-purple-500">
+                  <option value="side_part" selected>Side-Part / Combed</option>
+                  <option value="short">Short Crew Cut</option>
+                  <option value="curly">Curly / Afro</option>
+                  <option value="spiky">Spiky Messy Hair</option>
+                  <option value="slick">Slicked Back</option>
+                  <option value="buzz">Buzzcut</option>
+                  <option value="long_wavy">Long Wavy Hair</option>
+                  <option value="ponytail">Ponytail</option>
+                  <option value="bald">Bald</option>
+                </select>
+              </div>
+
+              <!-- Hair & Eyebrow Color -->
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">Hair & Brow Color</label>
+                <select id="sketch_hairColor" onchange="window.sketcher.updateFeature('hairColor', this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 focus:border-purple-500">
+                  <option value="#1c1917" selected>Jet Black</option>
+                  <option value="#38220f">Dark Brown</option>
+                  <option value="#543d2b">Chestnut Brown</option>
+                  <option value="#7c2d12">Auburn / Reddish</option>
+                  <option value="#475569">Grey / Silver</option>
+                </select>
+              </div>
+
+              <!-- Eyebrows -->
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">Eyebrow Type</label>
+                <select id="sketch_eyebrows" onchange="window.sketcher.updateFeature('eyebrows', this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 focus:border-purple-500">
+                  <option value="natural" selected>Natural Arched</option>
+                  <option value="bushy">Thick Bushy</option>
+                  <option value="angry">Slanted / Angry Glare</option>
+                  <option value="thin">Thin Curved</option>
+                  <option value="straight">Straight Flat</option>
+                </select>
+              </div>
+
+              <!-- Eyes & Iris -->
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">Eye Shape & Slant</label>
+                <select id="sketch_eyes" onchange="window.sketcher.updateFeature('eyes', this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 focus:border-purple-500">
+                  <option value="almond" selected>Almond Shape</option>
+                  <option value="round">Round Wide Open</option>
+                  <option value="narrow">Narrow / Squinting</option>
+                  <option value="deep_set">Deep-Set Eyes</option>
+                </select>
+              </div>
+
+              <!-- Nose -->
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">Nose Structure</label>
+                <select id="sketch_nose" onchange="window.sketcher.updateFeature('nose', this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 focus:border-purple-500">
+                  <option value="standard" selected>Standard Straight</option>
+                  <option value="aquiline">Aquiline / Roman Hook</option>
+                  <option value="wide">Wide / Broad Nostrils</option>
+                  <option value="button">Small Button Nose</option>
+                  <option value="pointed">Pointed Sharp</option>
+                </select>
+              </div>
+
+              <!-- Mouth & Lips -->
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">Mouth & Expression</label>
+                <select id="sketch_mouth" onchange="window.sketcher.updateFeature('mouth', this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 focus:border-purple-500">
+                  <option value="neutral" selected>Neutral Expression</option>
+                  <option value="thin">Thin Tight Lips</option>
+                  <option value="full">Full Lips</option>
+                  <option value="smirk">Slight Smirk</option>
+                  <option value="frown">Downturned Frown</option>
+                </select>
+              </div>
+
+              <!-- Facial Hair -->
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">Beard / Mustache</label>
+                <select id="sketch_beard" onchange="window.sketcher.updateFeature('beard', this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 focus:border-purple-500">
+                  <option value="none">Clean Shaven</option>
+                  <option value="stubble" selected>5 O'Clock Stubble</option>
+                  <option value="full_beard">Full Heavy Beard</option>
+                  <option value="goatee">Goatee</option>
+                  <option value="mustache">Classic Mustache</option>
+                  <option value="french">French Beard</option>
+                </select>
+              </div>
+
+              <!-- Accessories & Scars -->
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">Accessories & Distinguishing Marks</label>
+                <select id="sketch_accessories" onchange="window.sketcher.updateFeature('accessories', this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 focus:border-purple-500">
+                  <option value="none" selected>None</option>
+                  <option value="glasses_wire">Wireframe Eyeglasses</option>
+                  <option value="glasses_thick">Thick Frame Spectacles</option>
+                  <option value="sunglasses">Dark Sunglasses</option>
+                  <option value="cap">Baseball Cap</option>
+                  <option value="beanie">Winter Beanie</option>
+                  <option value="mask">Surgical / Face Mask</option>
+                  <option value="scar">Left Cheek Scar / Mark</option>
+                  <option value="piercing">Eyebrow & Nose Piercing</option>
+                </select>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ----------------------------------------------------------------------- -->
+    <!-- VIEW D: INTERACTIVE SAFETY MAP & SAFE HAVENS -->
+    <!-- ----------------------------------------------------------------------- -->
+    <section id="view_map" class="view-section hidden animate-fade-in space-y-4">
+      
+      <!-- Top Map Controls Bar -->
+      <div class="flex flex-wrap items-center justify-between gap-3 p-4 glass-panel rounded-2xl border border-slate-800">
+        <div>
+          <h2 class="text-xl font-extrabold text-white flex items-center gap-2">
+            <i data-lucide="radar" class="w-5 h-5 text-emerald-400"></i> Interactive Safety Radar & Safe Haven Locator
+          </h2>
+          <p class="text-xs text-slate-400">Live active SOS beacons, crime incidents categorized by priority, and 24/7 verified safe zones.</p>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <!-- Filter Toggles -->
+          <button id="filter_sos_btn" onclick="window.alertxMap.toggleFilter('sos')" class="px-2.5 py-1.5 rounded-lg bg-slate-700 text-white text-xs font-bold transition flex items-center gap-1">
+            <span class="w-2 h-2 rounded-full bg-red-500"></span> Active SOS
+          </button>
+          <button id="filter_reports_btn" onclick="window.alertxMap.toggleFilter('reports')" class="px-2.5 py-1.5 rounded-lg bg-slate-700 text-white text-xs font-bold transition flex items-center gap-1">
+            <span class="w-2 h-2 rounded-full bg-orange-500"></span> Incidents
+          </button>
+          <button id="filter_safeZones_btn" onclick="window.alertxMap.toggleFilter('safeZones')" class="px-2.5 py-1.5 rounded-lg bg-slate-700 text-white text-xs font-bold transition flex items-center gap-1">
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Safe Havens
+          </button>
+        </div>
+      </div>
+
+      <!-- Safe Route Banner (Visible when route is active) -->
+      <div id="safeRouteBanner" class="hidden p-3.5 bg-emerald-950/90 border border-emerald-700/80 rounded-2xl flex items-center justify-between gap-3 animate-fade-in">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-emerald-500 text-black flex items-center justify-center font-bold">
+            <i data-lucide="compass" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <div class="text-xs font-bold text-emerald-200">Active Safe Haven Route: <span id="safeRouteDestName" class="text-white">Pink Booth</span></div>
+            <div class="text-[11px] text-emerald-400 font-mono" id="safeRouteDist">0.4 km away (~5 min walk)</div>
+          </div>
+        </div>
+        <button onclick="window.alertxMap.clearRoute()" class="px-3 py-1 bg-emerald-900 hover:bg-emerald-800 text-emerald-200 text-xs font-semibold rounded-lg">Clear Route</button>
+      </div>
+
+      <!-- Map Viewport -->
+      <div class="relative w-full h-[520px] rounded-2xl overflow-hidden border border-slate-800 shadow-2xl">
+        <div id="mapContainer" class="w-full h-full"></div>
+      </div>
+
+    </section>
+
+    <!-- ----------------------------------------------------------------------- -->
+    <!-- VIEW E: EMERGENCY SAFETY TOOLS -->
+    <!-- ----------------------------------------------------------------------- -->
+    <section id="view_tools" class="view-section hidden animate-fade-in space-y-6">
+      
+      <div class="pb-2 border-b border-slate-800">
+        <h2 class="text-2xl font-extrabold text-white flex items-center gap-2">
+          <i data-lucide="shield-check" class="w-6 h-6 text-amber-400"></i> Emergency Safety Tools & Rights Handbook
+        </h2>
+        <p class="text-xs text-slate-400 mt-0.5">Quick access deterrent utilities, simulated decoy phone calls, and essential legal protection guides.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        
+        <!-- Tool 1: Fake Call Generator -->
+        <div class="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center">
+              <i data-lucide="phone-incoming" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h3 class="font-extrabold text-sm text-white">Fake Call Escape Utility</h3>
+              <p class="text-xs text-slate-400">Simulate a phone call with spoken voice to safely exit uncomfortable situations.</p>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <label class="block text-xs font-bold text-slate-300">Simulated Caller Identity</label>
+            <select id="fakeCallerNameSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200">
+              <option value="Inspector Sharma (Police Control)">Inspector Sharma (Police Control Room)</option>
+              <option value="Dad (Home)">Dad (Home)</option>
+              <option value="Mom (Home)">Mom (Home)</option>
+              <option value="College Campus Security">College Campus Security</option>
+              <option value="City Cab Dispatcher">City Cab Dispatcher</option>
+            </select>
+          </div>
+
+          <button onclick="window.safetyTools.triggerFakeCall()" class="w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-extrabold shadow-lg shadow-amber-600/30 transition flex items-center justify-center gap-2">
+            <i data-lucide="phone-call" class="w-4 h-4"></i> Trigger Incoming Call Now
+          </button>
+        </div>
+
+        <!-- Tool 2: High-Decibel Deterrent Screaming Siren -->
+        <div class="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-red-500/10 text-red-400 flex items-center justify-center">
+              <i data-lucide="volume-2" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h3 class="font-extrabold text-sm text-white">High-Decibel Deterrent Siren</h3>
+              <p class="text-xs text-slate-400">Emits a screeching dual-tone piercing alarm to disorient attackers and attract public attention.</p>
+            </div>
+          </div>
+
+          <div class="p-3 bg-red-950/40 rounded-xl border border-red-900/50 text-xs text-red-200">
+            ⚠️ <b>Note:</b> Turn volume up. This alarm will blast synthesized 2.8 kHz oscillations directly through the device speaker.
+          </div>
+
+          <button id="whistleAlarmBtn" onclick="window.safetyTools.toggleWhistleAlarm()" class="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-extrabold border border-slate-700 transition flex items-center justify-center gap-2">
+            <i data-lucide="megaphone" class="w-4 h-4 text-red-400"></i> Sound Screaming Deterrent Siren
+          </button>
+        <!-- Tool 3: Guardian Safe Walk Companion -->
+        <div class="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+              <i data-lucide="footprints" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h3 class="font-extrabold text-sm text-white">Guardian Safe Walk Companion</h3>
+              <p class="text-xs text-slate-400">Set destination and safety countdown. Automatically triggers SOS if you don't check in safely.</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <label class="block font-bold text-slate-300 mb-1">Destination</label>
+              <input type="text" id="safeWalkDestInput" value="Hostel Gate / Home" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200" />
+            </div>
+            <div>
+              <label class="block font-bold text-slate-300 mb-1">Walk Duration</label>
+              <select id="safeWalkDurationSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200">
+                <option value="5">5 Minutes</option>
+                <option value="10" selected>10 Minutes</option>
+                <option value="15">15 Minutes</option>
+                <option value="20">20 Minutes</option>
+              </select>
+            </div>
+          </div>
+
+          <button onclick="window.safetyTools.startSafeWalk(parseInt(document.getElementById('safeWalkDurationSelect').value), document.getElementById('safeWalkDestInput').value)" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-extrabold shadow-lg shadow-emerald-600/30 transition flex items-center justify-center gap-2">
+            <i data-lucide="shield" class="w-4 h-4"></i> Start Safe Walk Session
+          </button>
+        </div>
+
+        <!-- Tool 4: Direct Police Dispatch Helpline Trigger -->
+        <div class="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center">
+              <i data-lucide="phone-forwarded" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h3 class="font-extrabold text-sm text-white">Direct Police Dispatch Lines</h3>
+              <p class="text-xs text-slate-400">One-tap priority line connection to Women Safety Desk.</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="window.safetyTools.dialHelpline('1091', 'Women Safety Emergency')" class="p-2.5 rounded-xl bg-pink-950/60 border border-pink-700/60 text-pink-300 text-xs font-bold hover:bg-pink-900 flex items-center justify-center gap-1.5 transition">
+              <i data-lucide="phone" class="w-3.5 h-3.5"></i> Dial 1091 (Women)
+            </button>
+            <button onclick="window.safetyTools.dialHelpline('112', 'National Emergency Police')" class="p-2.5 rounded-xl bg-red-950/60 border border-red-700/60 text-red-300 text-xs font-bold hover:bg-red-900 flex items-center justify-center gap-1.5 transition">
+              <i data-lucide="phone" class="w-3.5 h-3.5"></i> Dial 112 (National)
+            </button>
+          </div>
+
+          <div class="text-[11px] text-slate-400 italic text-center">
+            Zero FIR and free legal aid protocols active under BNSS Section 173.
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Legal Rights & Zero FIR Pocket Guide -->
+      <div class="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4">
+        <h3 class="font-extrabold text-sm text-white flex items-center gap-2">
+          <i data-lucide="book-open" class="w-4 h-4 text-blue-400"></i> Essential Women Safety Legal Rights & Protocols
+        </h3>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="p-3.5 bg-slate-900/80 rounded-xl border border-slate-800 space-y-1">
+            <div class="font-bold text-xs text-red-400">Zero FIR Right</div>
+            <div class="text-[11px] text-slate-300">You can register an FIR at ANY police station irrespective of jurisdiction if in distress. Police cannot refuse registration.</div>
+          </div>
+
+          <div class="p-3.5 bg-slate-900/80 rounded-xl border border-slate-800 space-y-1">
+            <div class="font-bold text-xs text-purple-400">Right to Virtual FIR / Email</div>
+            <div class="text-[11px] text-slate-300">Women can lodge complaints via email or registered post to the Senior Superintendent if unable to visit in person.</div>
+          </div>
+
+          <div class="p-3.5 bg-slate-900/80 rounded-xl border border-slate-800 space-y-1">
+            <div class="font-bold text-xs text-emerald-400">Right to Privacy in Statement</div>
+            <div class="text-[11px] text-slate-300">Statements must be recorded by a female police officer in a private, comfortable location with presence of trusted guardian.</div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ----------------------------------------------------------------------- -->
+    <!-- VIEW F: USER PROFILE & EMERGENCY CONTACTS -->
+    <!-- ----------------------------------------------------------------------- -->
+    <section id="view_profile" class="view-section hidden animate-fade-in space-y-6">
+      
+      <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+        <div>
+          <h2 class="text-2xl font-extrabold text-white flex items-center gap-2">
+            <i data-lucide="user" class="w-6 h-6 text-blue-400"></i> My Profile & Emergency Contacts
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">Contacts who will receive automatic SMS broadcasts and live tracking during SOS alerts.</p>
+        </div>
+        <button onclick="document.getElementById('addContactModal').classList.remove('hidden')" class="px-3.5 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition">
+          <i data-lucide="user-plus" class="w-4 h-4"></i> Add Contact
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Profile Card -->
+        <div class="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4">
+          <div class="flex items-center gap-3">
+            <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-700 flex items-center justify-center font-black text-xl text-white shadow-lg">
+              PS
+            </div>
+            <div>
+              <h3 id="profileName" class="font-extrabold text-base text-white">Priya Sharma</h3>
+              <div id="profilePhone" class="text-xs text-slate-400 font-mono">+91 98765 43210</div>
+              <div class="text-[10px] text-emerald-400 font-semibold mt-0.5">Verified Citizen Profile</div>
+            </div>
+          </div>
+
+          <div class="space-y-2 pt-2 border-t border-slate-800 text-xs">
+            <div class="flex justify-between py-1 border-b border-slate-800/60">
+              <span class="text-slate-400">Email:</span>
+              <span id="profileEmail" class="text-slate-200 font-medium">priya@alertx.org</span>
+            </div>
+            <div class="flex justify-between py-1 border-b border-slate-800/60">
+              <span class="text-slate-400">Blood Group:</span>
+              <span id="profileBloodGroup" class="text-red-400 font-bold">O+</span>
+            </div>
+            <div class="py-1">
+              <span class="text-slate-400 block mb-1">Medical / Safety Notes:</span>
+              <p id="profileNotes" class="text-slate-300 italic bg-slate-900 p-2 rounded-lg text-[11px]">Asthma patient, carries emergency inhaler.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Contacts List (2 cols) -->
+        <div class="md:col-span-2 glass-panel p-5 rounded-2xl border border-slate-800 space-y-3">
+          <h3 class="font-extrabold text-xs text-slate-300 uppercase tracking-wider flex items-center gap-2">
+            <i data-lucide="users" class="w-4 h-4 text-emerald-400"></i> Primary Emergency Contacts Broadcast Pool
+          </h3>
+
+          <div id="profileContactsList" class="space-y-2">
+            <!-- Dynamic contact cards -->
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ----------------------------------------------------------------------- -->
+    <!-- VIEW G: ADMIN COMMAND CENTER (LIVE EMERGENCY FEED) -->
+    <!-- ----------------------------------------------------------------------- -->
+    <section id="view_admin_overview" class="view-section hidden animate-fade-in space-y-6">
+      
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-800">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <h2 class="text-2xl font-extrabold text-white">Dispatcher Command & Control Room</h2>
+          </div>
+          <p class="text-xs text-slate-400 mt-0.5">Real-time emergency feeds, automated unit dispatching, and evidence assessment.</p>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button onclick="window.adminDashboard.fetchActiveSOS(); window.adminDashboard.fetchIncidents();" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh Radar
+          </button>
+        </div>
+      </div>
+
+      <!-- KPI Overview Cards -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div class="glass-panel p-4 rounded-2xl border border-slate-800">
+          <div class="text-xs text-slate-400 font-medium">Total Reports</div>
+          <div id="kpiTotalReports" class="text-2xl font-black text-white mt-1">4</div>
+          <div class="text-[10px] text-blue-400 mt-0.5">Active Police Registry</div>
+        </div>
+
+        <div class="glass-panel p-4 rounded-2xl border border-red-500/40 bg-red-950/20">
+          <div class="text-xs text-red-300 font-medium">Critical Incidents</div>
+          <div id="kpiCriticalCount" class="text-2xl font-black text-red-400 mt-1">2</div>
+          <div class="text-[10px] text-red-400 mt-0.5 animate-pulse">Immediate Dispatch Req.</div>
+        </div>
+
+        <div class="glass-panel p-4 rounded-2xl border border-slate-800">
+          <div class="text-xs text-slate-400 font-medium">Resolved Cases</div>
+          <div id="kpiResolvedCount" class="text-2xl font-black text-emerald-400 mt-1">1</div>
+          <div class="text-[10px] text-emerald-400 mt-0.5">Safely Closed</div>
+        </div>
+
+        <div class="glass-panel p-4 rounded-2xl border border-slate-800">
+          <div class="text-xs text-slate-400 font-medium">Resolution Rate</div>
+          <div id="kpiResolutionRate" class="text-2xl font-black text-purple-400 mt-1">25%</div>
+          <div class="text-[10px] text-slate-400 mt-0.5">Avg Response: 3.8 mins</div>
+        </div>
+      </div>
+
+      <!-- Main Command Grid: Left (Active SOS Alerts) & Right (Quick Incidents) -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Active Live SOS Alerts (5 cols) -->
+        <div class="lg:col-span-5 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="font-extrabold text-sm text-red-400 uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="radio" class="w-4 h-4 animate-ping"></i> Live Emergency SOS Feed
+            </h3>
+            <span class="text-[11px] text-slate-400 font-mono">Live Telemetry</span>
+          </div>
+
+          <div id="adminLiveSOSFeed" class="space-y-3">
+            <!-- Dynamic SOS cards -->
+          </div>
+        </div>
+
+        <!-- Recent Incident Reports Triage (7 cols) -->
+        <div class="lg:col-span-7 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="font-extrabold text-sm text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="clipboard-list" class="w-4 h-4 text-blue-400"></i> Priority Incident Queue
+            </h3>
+            <button onclick="window.app.switchView('admin_incidents')" class="text-xs text-blue-400 hover:underline">View All Registry</button>
+          </div>
+
+          <div class="glass-panel rounded-2xl border border-slate-800 overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-slate-900/90 text-slate-400 border-b border-slate-800 uppercase font-mono text-[10px]">
+                  <tr>
+                    <th class="py-2.5 px-3">ID</th>
+                    <th class="py-2.5 px-3">Priority</th>
+                    <th class="py-2.5 px-3">Incident Title</th>
+                    <th class="py-2.5 px-3">Status</th>
+                    <th class="py-2.5 px-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="adminQuickTableBody" class="divide-y divide-slate-800/60">
+                  <!-- Handled by admin Dashboard -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ----------------------------------------------------------------------- -->
+    <!-- VIEW H: ADMIN INCIDENTS REGISTRY -->
+    <!-- ----------------------------------------------------------------------- -->
+    <section id="view_admin_incidents" class="view-section hidden animate-fade-in space-y-4">
+      
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-800">
+        <div>
+          <h2 class="text-2xl font-extrabold text-white flex items-center gap-2">
+            <i data-lucide="clipboard-list" class="w-6 h-6 text-blue-400"></i> Crime & Incident Registry
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">Filterable database of all citizen reports, attached suspect sketches, evidence, and responder logs.</p>
+        </div>
+      </div>
+
+      <!-- Filter Controls Bar -->
+      <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 glass-panel p-3.5 rounded-2xl border border-slate-800">
+        <!-- Search -->
+        <div>
+          <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Search Keywords</label>
+          <input type="text" id="adminSearchInput" oninput="window.adminDashboard.filters.search = this.value; window.adminDashboard.fetchIncidents();" placeholder="Search by title, location..." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:border-blue-500" />
+        </div>
+
+        <!-- Priority Filter -->
+        <div>
+          <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Filter Priority</label>
+          <select onchange="window.adminDashboard.filters.priority = this.value; window.adminDashboard.fetchIncidents();" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-200">
+            <option value="ALL">All Priorities</option>
+            <option value="CRITICAL">Critical (Red)</option>
+            <option value="HIGH">High (Orange)</option>
+            <option value="MEDIUM">Medium (Yellow)</option>
+            <option value="LOW">Low (Blue)</option>
+          </select>
+        </div>
+
+        <!-- Status Filter -->
+        <div>
+          <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Filter Status</label>
+          <select onchange="window.adminDashboard.filters.status = this.value; window.adminDashboard.fetchIncidents();" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-200">
+            <option value="ALL">All Statuses</option>
+            <option value="Pending">Pending</option>
+            <option value="Dispatched">Dispatched</option>
+            <option value="Investigating">Investigating</option>
+            <option value="Resolved">Resolved</option>
+          </select>
+        </div>
+
+        <!-- Category Filter -->
+        <div>
+          <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Category</label>
+          <select onchange="window.adminDashboard.filters.category = this.value; window.adminDashboard.fetchIncidents();" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-200">
+            <option value="ALL">All Categories</option>
+            <option value="Harassment">Harassment</option>
+            <option value="Stalking">Stalking</option>
+            <option value="Assault">Assault</option>
+            <option value="Domestic Violence">Domestic Violence</option>
+            <option value="Robbery">Robbery</option>
+            <option value="Suspicious">Suspicious</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Incidents Table -->
+      <div class="glass-panel rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-900 text-slate-400 border-b border-slate-800 uppercase font-mono text-[10px]">
+              <tr>
+                <th class="py-3 px-4">Ref ID</th>
+                <th class="py-3 px-4">AI Priority</th>
+                <th class="py-3 px-4">Title & Context</th>
+                <th class="py-3 px-4">Reporter</th>
+                <th class="py-3 px-4 text-center">Sketch</th>
+                <th class="py-3 px-4">Status</th>
+                <th class="py-3 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="adminIncidentsTableBody" class="divide-y divide-slate-800">
+              <!-- Dynamic Incident Rows -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ----------------------------------------------------------------------- -->
+    <!-- VIEW I: CRIME & DISPATCH ANALYTICS -->
+    <!-- ----------------------------------------------------------------------- -->
+    <section id="view_admin_analytics" class="view-section hidden animate-fade-in space-y-6">
+      
+      <div class="pb-2 border-b border-slate-800">
+        <h2 class="text-2xl font-extrabold text-white flex items-center gap-2">
+          <i data-lucide="bar-chart-3" class="w-6 h-6 text-indigo-400"></i> Crime Patterns & Response Analytics
+        </h2>
+        <p class="text-xs text-slate-400 mt-0.5">Automated distribution charts, severity classification metrics, and police response KPIs.</p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- Priority Donut Chart -->
+        <div class="glass-panel p-5 rounded-2xl border border-slate-800 space-y-3">
+          <h3 class="font-extrabold text-sm text-slate-200 uppercase tracking-wide flex items-center gap-2">
+            <i data-lucide="pie-chart" class="w-4 h-4 text-red-400"></i> AI Priority Severity Distribution
+          </h3>
+          <div class="h-64 relative flex items-center justify-center">
+            <canvas id="adminPriorityChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Categories Bar Chart -->
+        <div class="glass-panel p-5 rounded-2xl border border-slate-800 space-y-3">
+          <h3 class="font-extrabold text-sm text-slate-200 uppercase tracking-wide flex items-center gap-2">
+            <i data-lucide="bar-chart-2" class="w-4 h-4 text-indigo-400"></i> Incident Frequency by Category
+          </h3>
+          <div class="h-64 relative">
+            <canvas id="adminCategoryChart"></canvas>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- 4. MODALS & OVERLAYS -->
+  <!-- ========================================================================= -->
+
+  <!-- Modal 1: 3-Second SOS Countdown Modal -->
+  <div id="sosCountdownModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-fade-in">
+    <div class="glass-panel p-8 rounded-3xl max-w-sm w-full border border-red-500/50 text-center space-y-5 shadow-2xl relative">
+      <div class="w-24 h-24 mx-auto rounded-full bg-red-600/20 text-red-500 border-2 border-red-500 flex items-center justify-center text-5xl font-black" id="sosCountdownNumber">
+        3
+      </div>
+
+      <div>
+        <h3 class="text-xl font-extrabold text-white">Activating Emergency SOS</h3>
+        <p class="text-xs text-slate-300 mt-1">Dispatches alert to Police Command & sends live GPS tracking to emergency contacts.</p>
+      </div>
+
+      <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+        <div id="sosCountdownBar" class="bg-red-500 h-full w-full transition-all duration-100"></div>
+      </div>
+
+      <button onclick="window.sosController.cancelSOSCountdown()" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-extrabold text-xs uppercase tracking-wider transition">
+        Cancel Alert (False Alarm)
+      </button>
+    </div>
+  </div>
+
+  <!-- Modal 2: Active SOS Live Telemetry Modal -->
+  <div id="activeSOSModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-lg p-4 animate-fade-in">
+    <div class="glass-panel-danger p-6 sm:p-8 rounded-3xl max-w-lg w-full border-2 border-red-500 space-y-5 shadow-2xl relative">
+      
+      <div class="flex items-center justify-between border-b border-red-500/30 pb-3">
+        <div class="flex items-center gap-2">
+          <span class="w-3.5 h-3.5 rounded-full bg-red-500 animate-ping"></span>
+          <span class="font-extrabold text-base text-red-400">EMERGENCY DISTRESS SIGNAL ACTIVE</span>
+        </div>
+        <span id="activeSosIdText" class="font-mono text-xs text-red-300 font-bold">#SOS-001</span>
+      </div>
+
+      <!-- Telemetry Grid -->
+      <div class="p-4 bg-slate-900/90 rounded-2xl border border-red-500/30 space-y-2 text-xs">
+        <div class="flex justify-between py-1 border-b border-slate-800">
+          <span class="text-slate-400">Live GPS Location:</span>
+          <span id="activeSosAddressText" class="text-slate-100 font-semibold truncate max-w-[220px]">Connaught Place</span>
+        </div>
+        <div class="flex justify-between py-1 border-b border-slate-800">
+          <span class="text-slate-400">GPS Coordinates:</span>
+          <span id="activeSosCoordsText" class="text-amber-400 font-mono font-bold">28.6328, 77.2195</span>
+        </div>
+        <div class="flex justify-between py-1 border-b border-slate-800">
+          <span class="text-slate-400">Battery Level:</span>
+          <span id="activeSosBatteryText" class="text-emerald-400 font-bold">85%</span>
+        </div>
+        <div class="flex justify-between py-1">
+          <span class="text-slate-400">Dispatched Police Unit:</span>
+          <span id="activeSosUnitText" class="text-red-400 font-extrabold">Pink Patrol 01 (ETA: 3m)</span>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button id="toggleSirenBtn" onclick="window.sosController.toggleSiren()" class="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition flex items-center justify-center">
+          <i data-lucide="volume-2" class="w-4 h-4 mr-1.5"></i> Siren Controls
+        </button>
+
+        <button onclick="window.sosController.resolveActiveSOS()" class="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase tracking-wider transition shadow-lg shadow-emerald-600/30">
+          ✅ I Am Safe / Cancel SOS
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Modal 3: Emergency Broadcast SMS / WhatsApp Simulator Modal -->
+  <div id="broadcastDetailsModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in">
+    <div class="glass-panel p-6 rounded-3xl max-w-md w-full border border-slate-700 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <i data-lucide="send" class="w-5 h-5 text-emerald-400"></i>
+          <h3 class="font-extrabold text-sm text-white">Emergency Broadcast Summary</h3>
+        </div>
+        <button onclick="document.getElementById('broadcastDetailsModal').classList.add('hidden')" class="p-1 text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="p-3 bg-slate-900 rounded-xl border border-slate-800 text-xs space-y-1">
+        <div class="text-slate-400">Live Tracker Link Shared:</div>
+        <div id="broadcastTrackingLink" class="font-mono text-emerald-400 font-bold">https://alertx.org/live/9021</div>
+        <div class="text-[11px] text-slate-400 mt-1">Location: <span id="broadcastAddressText" class="text-slate-200 font-semibold"></span></div>
+        <div class="text-[11px] text-slate-400">Coords: <span id="broadcastCoordinatesText" class="text-amber-400 font-mono"></span></div>
+      </div>
+
+      <div>
+        <div class="text-xs font-bold text-slate-300 mb-2">Simulated SMS & WhatsApp Dispatches:</div>
+        <div id="broadcastContactsList" class="space-y-2"></div>
+      </div>
+
+      <button onclick="document.getElementById('broadcastDetailsModal').classList.add('hidden')" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition">
+        Dismiss Notice
+      </button>
+    </div>
+  </div>
+
+  <!-- Modal 4: Fake Call Screen Overlay -->
+  <div id="fakeCallOverlay" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-4 animate-fade-in">
+    <div class="w-full max-w-xs h-[540px] bg-gradient-to-b from-slate-900 via-slate-950 to-black rounded-[40px] border-4 border-slate-700 p-6 flex flex-col justify-between shadow-2xl relative overflow-hidden">
+      
+      <div class="phone-notch"></div>
+
+      <!-- Incoming Screen -->
+      <div id="fakeCallIncomingScreen" class="flex-1 flex flex-col items-center justify-between py-6">
+        <div class="text-center space-y-1 mt-6">
+          <div class="text-xs text-slate-400 uppercase tracking-widest font-semibold">Incoming Call</div>
+          <h3 id="fakeCallCallerName" class="text-xl font-bold text-white">Inspector Sharma (Control)</h3>
+          <p class="text-xs text-slate-400">AlertX Emergency Assistance</p>
+        </div>
+
+        <div class="w-24 h-24 rounded-full bg-slate-800/80 border-2 border-slate-600 flex items-center justify-center text-3xl call-pulse">
+          👤
+        </div>
+
+        <!-- Buttons -->
+        <div class="w-full flex items-center justify-around">
+          <!-- Decline -->
+          <button onclick="window.safetyTools.endFakeCall()" class="w-14 h-14 rounded-full bg-red-600 text-white flex items-center justify-center shadow-lg shadow-red-600/40 hover:scale-105 active:scale-95 transition">
+            <i data-lucide="phone-off" class="w-6 h-6"></i>
+          </button>
+          <!-- Accept -->
+          <button onclick="window.safetyTools.acceptFakeCall()" class="w-14 h-14 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/40 hover:scale-105 active:scale-95 transition">
+            <i data-lucide="phone" class="w-6 h-6"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Active Call Screen -->
+      <div id="fakeCallActiveScreen" class="hidden flex-1 flex flex-col items-center justify-between py-6">
+        <div class="text-center space-y-1 mt-6">
+          <h3 id="fakeCallActiveCallerName" class="text-lg font-bold text-white">Inspector Sharma</h3>
+          <div id="fakeCallDuration" class="text-xs text-emerald-400 font-mono">00:00</div>
+        </div>
+
+        <div class="p-4 bg-slate-900/80 rounded-2xl border border-slate-800 text-xs text-slate-300 text-center italic">
+          "Stay calm Priya, our patrol unit is approaching your current location now. Stay on this call."
+        </div>
+
+        <!-- End call button -->
+        <button onclick="window.safetyTools.endFakeCall()" class="w-14 h-14 rounded-full bg-red-600 text-white flex items-center justify-center shadow-lg shadow-red-600/40 hover:scale-105 active:scale-95 transition">
+          <i data-lucide="phone-off" class="w-6 h-6"></i>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Modal 5: Admin Detailed Incident & Dispatch Modal -->
+  <div id="adminIncidentDetailModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-fade-in overflow-y-auto">
+    <div class="glass-panel p-6 rounded-3xl max-w-3xl w-full border border-slate-700 space-y-5 shadow-2xl my-8">
+      
+      <div class="flex items-start justify-between border-b border-slate-800 pb-3">
+        <div>
+          <h3 id="modalIncidentTitle" class="font-extrabold text-base text-white">Incident Detail</h3>
+          <div id="modalPriorityBadge" class="mt-1"></div>
+        </div>
+        <button onclick="window.adminDashboard.closeModal()" class="p-1.5 text-slate-400 hover:text-white rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        
+        <!-- Victim & Context Info -->
+        <div class="space-y-3">
+          <div class="p-3.5 bg-slate-900 rounded-xl border border-slate-800 space-y-1.5 text-xs">
+            <div class="font-bold text-slate-300 uppercase tracking-wide text-[10px]">Reporter Details</div>
+            <div id="modalReporterInfo"></div>
+          </div>
+
+          <div class="p-3.5 bg-slate-900 rounded-xl border border-slate-800 space-y-1 text-xs">
+            <div class="font-bold text-slate-300 uppercase tracking-wide text-[10px]">AI Priority Rationale</div>
+            <p id="modalAIRationale" class="text-slate-300 italic leading-relaxed"></p>
+          </div>
+
+          <div class="p-3.5 bg-slate-900 rounded-xl border border-slate-800 space-y-1 text-xs">
+            <div class="font-bold text-slate-300 uppercase tracking-wide text-[10px]">Narrative Description</div>
+            <p id="modalIncidentDesc" class="text-slate-300 leading-relaxed max-h-32 overflow-y-auto"></p>
+          </div>
+        </div>
+
+        <!-- Suspect Sketch & Evidence Media -->
+        <div class="space-y-3">
+          <div class="p-3.5 bg-slate-900 rounded-xl border border-slate-800 space-y-2 text-xs">
+            <div class="font-bold text-slate-300 uppercase tracking-wide text-[10px]">Attached Suspect Sketch</div>
+            <div id="modalSketchContainer"></div>
+          </div>
+
+          <div class="p-3.5 bg-slate-900 rounded-xl border border-slate-800 space-y-2 text-xs">
+            <div class="font-bold text-slate-300 uppercase tracking-wide text-[10px]">Evidence Files</div>
+            <div id="modalEvidenceContainer" class="grid grid-cols-2 gap-2"></div>
+          </div>
+
+          <div id="modalAudioContainer"></div>
+        </div>
+
+      </div>
+
+      <!-- Dispatch Action Controls -->
+      <div class="p-4 bg-slate-900/90 rounded-2xl border border-slate-700 space-y-3">
+        <h4 class="font-extrabold text-xs text-white uppercase tracking-wider flex items-center gap-1.5">
+          <i data-lucide="shield" class="w-4 h-4 text-emerald-400"></i> Dispatcher Response & Status Action
+        </h4>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          <div>
+            <label class="block font-bold text-slate-300 mb-1">Assign Response Unit</label>
+            <select id="modalAssignUnitSelect" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-3 py-2 text-slate-200 font-semibold"></select>
+          </div>
+          <div>
+            <label class="block font-bold text-slate-300 mb-1">Update Status</label>
+            <select id="modalStatusSelect" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-3 py-2 text-slate-200 font-semibold">
+              <option value="Pending">Pending</option>
+              <option value="Dispatched">Dispatched</option>
+              <option value="Investigating">Investigating</option>
+              <option value="Resolved">Resolved</option>
+              <option value="False Alarm">False Alarm</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-bold text-slate-300 mb-1">Dispatcher Log Note</label>
+            <input type="text" id="modalDispatcherNotes" placeholder="e.g., Patrol dispatched to Gate 4" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-3 py-2 text-slate-200" />
+          </div>
+        </div>
+
+        <div class="flex justify-between items-center pt-2">
+          <button type="button" onclick="window.adminDashboard.printOfficialFIR()" class="px-4 py-2 bg-red-950/80 text-red-300 border border-red-700/60 hover:bg-red-900 rounded-xl text-xs font-bold flex items-center gap-1.5 transition">
+            <i data-lucide="printer" class="w-3.5 h-3.5"></i> Print Official FIR / Case Slip
+          </button>
+          <div class="flex gap-2">
+            <button onclick="window.adminDashboard.closeModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold">Cancel</button>
+            <button onclick="window.adminDashboard.saveDispatchAction()" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-extrabold shadow-lg shadow-emerald-600/30">Save Dispatch Action</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Modal 6: Report Success Confirmation Modal -->
+  <div id="reportSuccessModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in">
+    <div class="glass-panel p-6 rounded-3xl max-w-md w-full border border-emerald-500/50 space-y-4 shadow-2xl text-center">
+      <div class="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center justify-center">
+        <i data-lucide="check-check" class="w-8 h-8"></i>
+      </div>
+      <div>
+        <h3 class="font-extrabold text-lg text-white">Report Successfully Registered</h3>
+        <p class="text-xs text-slate-400 mt-0.5">Your official incident report has been securely saved and dispatched to police triage.</p>
+      </div>
+
+      <div class="p-3.5 bg-slate-900 rounded-xl border border-slate-800 text-left text-xs space-y-1.5">
+        <div class="flex justify-between">
+          <span class="text-slate-400">Reference ID:</span>
+          <span id="successReportId" class="font-mono font-bold text-slate-200">#REP-001</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-slate-400">AI Priority Level:</span>
+          <span id="successReportPriority" class="font-bold">CRITICAL</span>
+        </div>
+        <div class="pt-1 border-t border-slate-800">
+          <span class="text-slate-400 block mb-0.5">Incident Title:</span>
+          <div id="successReportTitle" class="font-semibold text-slate-200"></div>
+        </div>
+        <div class="pt-1 border-t border-slate-800 text-[11px] text-slate-400 italic" id="successReportRationale"></div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button onclick="document.getElementById('reportSuccessModal').classList.add('hidden'); window.app.switchView('home');" class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold">
+          Return to Hub
+        </button>
+        <button onclick="document.getElementById('reportSuccessModal').classList.add('hidden'); window.app.toggleRole('admin');" class="flex-1 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold">
+          View in Admin Feed
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 7: Add Contact Modal -->
+  <div id="addContactModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in">
+    <div class="glass-panel p-6 rounded-3xl max-w-sm w-full border border-slate-700 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between">
+        <h3 class="font-extrabold text-sm text-white flex items-center gap-2">
+          <i data-lucide="user-plus" class="w-4 h-4 text-red-400"></i> Add Emergency Contact
+        </h3>
+        <button onclick="document.getElementById('addContactModal').classList.add('hidden')" class="p-1 text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block font-bold text-slate-300 mb-1">Contact Name *</label>
+          <input type="text" id="newContactName" placeholder="e.g., Aarti Sharma" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200" />
+        </div>
+        <div>
+          <label class="block font-bold text-slate-300 mb-1">Phone Number *</label>
+          <input type="text" id="newContactPhone" placeholder="e.g., +91 98111 22334" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono" />
+        </div>
+        <div>
+          <label class="block font-bold text-slate-300 mb-1">Relationship</label>
+          <input type="text" id="newContactRelation" placeholder="e.g., Mother / Sister / Friend" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200" />
+        </div>
+        <div class="flex items-center gap-2 pt-1">
+          <input type="checkbox" id="newContactPrimary" class="rounded bg-slate-900 border-slate-700 text-red-600 focus:ring-0" />
+          <label for="newContactPrimary" class="text-slate-300 font-medium">Set as Primary Emergency Contact</label>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="document.getElementById('addContactModal').classList.add('hidden')" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl text-xs font-semibold">Cancel</button>
+        <button onclick="window.app.addContact()" class="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold">Save Contact</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 8: Suspect Crime Database Match Simulator Modal -->
+  <div id="suspectMatchModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-fade-in">
+    <div class="glass-panel p-6 rounded-3xl max-w-lg w-full border border-purple-500/50 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center font-bold">
+            <i data-lucide="scan-face" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-extrabold text-sm text-white">Forensic Database Matching Engine</h3>
+            <p class="text-[11px] text-slate-400">Comparing sketch composite with police offender database</p>
+          </div>
+        </div>
+        <button onclick="document.getElementById('suspectMatchModal').classList.add('hidden')" class="p-1 text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div id="suspectMatchResults" class="min-h-[160px]">
+        <!-- Populated dynamically by window.sketcher.runDatabaseMatch() -->
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
+        <button onclick="document.getElementById('suspectMatchModal').classList.add('hidden')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold">Close Scanner</button>
+        <button onclick="document.getElementById('suspectMatchModal').classList.add('hidden'); window.app.useSketchInReport();" class="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold">Attach to New Report</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Global Guardian Safe Walk Active Floating Widget -->
+  <div id="safeWalkActiveBanner" class="hidden fixed bottom-6 left-6 z-40 p-4 bg-emerald-950/95 border-2 border-emerald-500/80 rounded-2xl shadow-2xl backdrop-blur-md flex items-center gap-4 animate-fade-in max-w-sm">
+    <div class="w-10 h-10 rounded-xl bg-emerald-500 text-black flex items-center justify-center font-black animate-pulse">
+      <i data-lucide="footprints" class="w-6 h-6"></i>
+    </div>
+    <div class="flex-1">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold text-emerald-200 uppercase tracking-wider">Guardian Walk Active</span>
+        <span id="safeWalkTimerDisplay" class="font-mono font-black text-sm text-white bg-black/40 px-2 py-0.5 rounded">10:00</span>
+      </div>
+      <div class="text-[11px] text-emerald-300 truncate mt-0.5">Dest: <span id="safeWalkDestDisplay" class="font-semibold text-white">Hostel Gate</span></div>
+    </div>
+    <button onclick="window.safetyTools.confirmSafeArrival()" class="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black rounded-xl shadow transition">
+      I'm Safe
+    </button>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 pointer-events-none"></div>
+
+  <!-- ========================================================================= -->
+  <!-- 5. APPLICATION SCRIPTS -->
+  <!-- ========================================================================= -->
+  <script src="/js/sketch.js"></script>
+  <script src="/js/sos.js"></script>
+  <script src="/js/report.js"></script>
+  <script src="/js/map.js"></script>
+  <script src="/js/tools.js"></script>
+  <script src="/js/admin.js"></script>
+  <script src="/js/app.js"></script>
+
+</body>
+</html>
